@@ -135,6 +135,7 @@ struct MicGuardPanel: View {
                 Text("Блокировать Bluetooth-микрофон")
             }
             .toggleStyle(.switch)
+            .tint(.blue)
             .onChange(of: lockState.isLocked) { _, _ in
                 AudioMonitor.shared.enforcePolicy()
             }
