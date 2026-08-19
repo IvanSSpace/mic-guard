@@ -156,17 +156,29 @@ struct MicGuardPanel: View {
                 }
 
                 if !otherDevices.isEmpty {
-                    DisclosureGroup(isExpanded: $showOtherDevices) {
+                    Button {
+                        showOtherDevices.toggle()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: showOtherDevices ? "chevron.down" : "chevron.right")
+                                .font(.caption2)
+                            Text(deviceCountLabel(otherDevices.count))
+                                .font(.caption)
+                        }
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 5)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if showOtherDevices {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(otherDevices, id: \.uid) { device in
                                 DeviceRow(device: device, isLocked: lockState.isLocked)
                             }
                         }
                         .padding(.top, 4)
-                    } label: {
-                        Text(deviceCountLabel(otherDevices.count))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
