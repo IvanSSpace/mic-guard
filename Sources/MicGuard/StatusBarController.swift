@@ -63,6 +63,7 @@ final class StatusBarController: NSObject {
             y: buttonFrame.minY - size.height
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.alphaValue = 1
         panel.orderFrontRegardless()
         panel.makeKey()
 
@@ -72,11 +73,17 @@ final class StatusBarController: NSObject {
     }
 
     private func closeContent() {
-        panel.orderOut(nil)
         if let monitor = outsideClickMonitor {
             NSEvent.removeMonitor(monitor)
             outsideClickMonitor = nil
         }
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak panel] in
+            panel?.orderOut(nil)
+            panel?.alphaValue = 1
+        })
     }
 
     private func updateIcon() {

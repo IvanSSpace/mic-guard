@@ -4,6 +4,10 @@ import AppKit
 private struct DeviceRow: View {
     let device: DisplayDevice
     let isLocked: Bool
+    /// Только у самого верхнего устройства в приоритете имеет смысл говорить
+    /// "подключится — станет входом": для остальных выше по рангу уже что-то
+    /// работает, реконнект нижних ничего не поменяет.
+    let isTopPriority: Bool
     @ObservedObject var enableStore = DeviceEnableStore.shared
 
     private var isManuallyDisabled: Bool { enableStore.disabledUIDs.contains(device.uid) }
@@ -73,7 +77,7 @@ private struct DeviceRow: View {
                 }
                 .buttonStyle(.plain)
             }
-            if !device.isConnected {
+            if !device.isConnected && isTopPriority {
                 Text(isManuallyDisabled ? "disconnected, disabled" : "disconnected — auto-activates on connect")
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
@@ -152,7 +156,7 @@ struct MicGuardPanel: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Приоритет входов").font(.caption).foregroundStyle(.secondary)
                 ForEach(physicalDevices, id: \.uid) { device in
-                    DeviceRow(device: device, isLocked: lockState.isLocked)
+                    DeviceRow(device: device, isLocked: lockState.isLocked, isTopPriority: device.uid == physicalDevices.first?.uid)
                 }
 
                 if !otherDevices.isEmpty {
@@ -175,7 +179,7 @@ struct MicGuardPanel: View {
                     if showOtherDevices {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(otherDevices, id: \.uid) { device in
-                                DeviceRow(device: device, isLocked: lockState.isLocked)
+                                DeviceRow(device: device, isLocked: lockState.isLocked, isTopPriority: false)
                             }
                         }
                         .padding(.top, 4)
