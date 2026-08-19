@@ -93,8 +93,8 @@ private struct BadgeIcon: View {
 
     var body: some View {
         Image(systemName: locked ? "mic.slash.fill" : "mic.fill")
-            .font(.system(size: 14, weight: .black))
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(.white)
-            .frame(width: 24, height: 20)
+            .frame(width: 22, height: 20)
     }
 }
