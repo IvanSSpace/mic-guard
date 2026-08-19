@@ -6,23 +6,39 @@ import Combine
 /// rendering — no combination of colors/backgrounds survives it. A real coloured
 /// badge (like third-party apps show) needs a raw `NSStatusItem` with
 /// `isTemplate = false`, so the icon is built here via AppKit instead.
+///
+/// The dropdown itself is a plain borderless panel, not `NSPopover` — NSPopover
+/// always draws its arrow/tail pointing at the button, with no public switch to
+/// turn it off. A `.nonactivatingPanel` gives the same simple rectangle other
+/// menu bar apps show, positioned manually under the status item.
 @MainActor
 final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem!
-    private var popover: NSPopover!
+    private var panel: NSPanel!
     private var cancellable: AnyCancellable?
+    private var outsideClickMonitor: Any?
 
     override init() {
         super.init()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.target = self
-        statusItem.button?.action = #selector(togglePopover)
+        statusItem.button?.action = #selector(toggleContent)
 
-        popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = false
-        popover.contentViewController = NSHostingController(rootView: MicGuardPanel())
+        let hosting = NSHostingView(rootView: MicGuardPanel())
+        hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
+
+        panel = NSPanel(
+            contentRect: hosting.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .popUpMenu
+        panel.contentView = hosting
 
         updateIcon()
         cancellable = LockState.shared.$isLocked.sink { [weak self] _ in
@@ -30,13 +46,36 @@ final class StatusBarController: NSObject {
         }
     }
 
-    @objc private func togglePopover() {
-        guard let button = statusItem.button else { return }
-        if popover.isShown {
-            popover.performClose(nil)
+    @objc private func toggleContent() {
+        if panel.isVisible {
+            closeContent()
         } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+            showContent()
+        }
+    }
+
+    private func showContent() {
+        guard let button = statusItem.button, let buttonWindow = button.window else { return }
+        let buttonFrame = buttonWindow.convertToScreen(button.frame)
+        let size = panel.contentView?.fittingSize ?? panel.frame.size
+        let origin = NSPoint(
+            x: buttonFrame.midX - size.width / 2,
+            y: buttonFrame.minY - size.height
+        )
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.orderFrontRegardless()
+        panel.makeKey()
+
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.closeContent()
+        }
+    }
+
+    private func closeContent() {
+        panel.orderOut(nil)
+        if let monitor = outsideClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            outsideClickMonitor = nil
         }
     }
 

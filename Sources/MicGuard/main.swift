@@ -184,6 +184,7 @@ struct MicGuardPanel: View {
         }
         .padding(16)
         .frame(width: 300)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
