@@ -4,8 +4,11 @@ import AppKit
 private struct DeviceRow: View {
     let device: AudioDeviceInfo
     let isLocked: Bool
+    @ObservedObject var enableStore = DeviceEnableStore.shared
 
-    private var isBlocked: Bool { device.transport == .bluetooth && isLocked }
+    private var isManuallyDisabled: Bool { enableStore.disabledUIDs.contains(device.uid) }
+    private var isBluetoothBlocked: Bool { device.transport == .bluetooth && isLocked }
+    private var isBlocked: Bool { isBluetoothBlocked || isManuallyDisabled }
 
     private var icon: String {
         switch device.transport {
@@ -18,12 +21,26 @@ private struct DeviceRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Toggle("", isOn: Binding(
+                get: { !isManuallyDisabled },
+                set: { enabled in
+                    if enabled {
+                        DeviceEnableStore.shared.enable(device.uid)
+                    } else {
+                        DeviceEnableStore.shared.disable(device.uid)
+                    }
+                    AudioMonitor.shared.enforcePolicy()
+                }
+            ))
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+
             Image(systemName: icon).frame(width: 16)
             Text(device.name)
                 .lineLimit(1)
                 .strikethrough(isBlocked)
                 .foregroundStyle(isBlocked ? .secondary : .primary)
-            if isBlocked {
+            if isBluetoothBlocked {
                 Image(systemName: "lock.fill")
                     .font(.caption2)
                     .foregroundStyle(.secondary)

@@ -69,7 +69,7 @@ final class AudioMonitor {
         // LockState/PriorityStore мутируются из SwiftUI на main thread — читаем и
         // публикуем состояние для UI одним синхронным хопом на main, чтобы не гонять
         // @Published свойства между потоками.
-        let (isLocked, ranked) = DispatchQueue.main.sync { () -> (Bool, [AudioDeviceInfo]) in
+        let (isLocked, ranked, disabledUIDs) = DispatchQueue.main.sync { () -> (Bool, [AudioDeviceInfo], Set<String>) in
             if let current {
                 MonitorState.shared.currentInputName = current.name
                 MonitorState.shared.currentInputIsBluetooth = current.transport == .bluetooth
@@ -77,10 +77,12 @@ final class AudioMonitor {
             let locked = LockState.shared.isLocked
             let sorted = PriorityStore.shared.sortedAvailable(from: all)
             MonitorState.shared.rankedDevices = sorted
-            return (locked, sorted)
+            return (locked, sorted, DeviceEnableStore.shared.disabledUIDs)
         }
 
-        let allowed = ranked.filter { !($0.transport == .bluetooth && isLocked) }
+        let allowed = ranked.filter {
+            !($0.transport == .bluetooth && isLocked) && !disabledUIDs.contains($0.uid)
+        }
         guard let desired = allowed.first, desired.id != currentID else { return }
         setDefaultInput(desired.id)
     }
