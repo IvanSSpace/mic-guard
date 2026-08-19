@@ -78,9 +78,32 @@ private struct DeviceRow: View {
     }
 }
 
+private func deviceCountLabel(_ n: Int) -> String {
+    let mod100 = n % 100
+    let mod10 = n % 10
+    if (11...14).contains(mod100) { return "Ещё \(n) устройств" }
+    switch mod10 {
+    case 1: return "Ещё \(n) устройство"
+    case 2, 3, 4: return "Ещё \(n) устройства"
+    default: return "Ещё \(n) устройств"
+    }
+}
+
 struct MicGuardPanel: View {
     @ObservedObject var lockState = LockState.shared
     @ObservedObject var monitorState = MonitorState.shared
+    @State private var showOtherDevices = false
+
+    /// Реальные микрофоны — то, что физически выбирают как вход.
+    private var physicalDevices: [DisplayDevice] {
+        monitorState.displayDevices.filter { $0.transport != .virtual && $0.transport != .other }
+    }
+
+    /// Виртуальные/неопознанные устройства (Loopback, Screaming Bee, Zoom и т.п.) —
+    /// шум от других приложений, а не то, что реально выбирают руками. Сворачиваем.
+    private var otherDevices: [DisplayDevice] {
+        monitorState.displayDevices.filter { $0.transport == .virtual || $0.transport == .other }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -121,8 +144,23 @@ struct MicGuardPanel: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Приоритет входов").font(.caption).foregroundStyle(.secondary)
-                ForEach(monitorState.displayDevices, id: \.uid) { device in
+                ForEach(physicalDevices, id: \.uid) { device in
                     DeviceRow(device: device, isLocked: lockState.isLocked)
+                }
+
+                if !otherDevices.isEmpty {
+                    DisclosureGroup(isExpanded: $showOtherDevices) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(otherDevices, id: \.uid) { device in
+                                DeviceRow(device: device, isLocked: lockState.isLocked)
+                            }
+                        }
+                        .padding(.top, 4)
+                    } label: {
+                        Text(deviceCountLabel(otherDevices.count))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -156,6 +194,7 @@ struct MicGuardApp: App {
             MicGuardPanel()
         } label: {
             Image(systemName: lockState.isLocked ? "mic.slash.circle.fill" : "mic.circle.fill")
+                .font(.system(size: 15, weight: .black))
         }
         .menuBarExtraStyle(.window)
     }
