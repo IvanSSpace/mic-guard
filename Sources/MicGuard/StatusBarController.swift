@@ -59,7 +59,7 @@ final class StatusBarController: NSObject {
         let buttonFrame = buttonWindow.convertToScreen(button.frame)
         let size = panel.contentView?.fittingSize ?? panel.frame.size
         let origin = NSPoint(
-            x: buttonFrame.midX - size.width / 2,
+            x: buttonFrame.minX,
             y: buttonFrame.minY - size.height
         )
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
