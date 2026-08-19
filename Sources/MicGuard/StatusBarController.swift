@@ -53,12 +53,8 @@ private struct BadgeIcon: View {
 
     var body: some View {
         Image(systemName: locked ? "mic.slash.fill" : "mic.fill")
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 14, weight: .black))
             .foregroundStyle(.white)
-            .frame(width: 26, height: 20)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(locked ? Color.accentColor : Color.orange)
-            )
+            .frame(width: 24, height: 20)
     }
 }
