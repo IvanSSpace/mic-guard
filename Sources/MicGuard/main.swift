@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 private struct DeviceRow: View {
-    let device: AudioDeviceInfo
+    let device: DisplayDevice
     let isLocked: Bool
     @ObservedObject var enableStore = DeviceEnableStore.shared
 
@@ -20,47 +20,59 @@ private struct DeviceRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Toggle("", isOn: Binding(
-                get: { !isManuallyDisabled },
-                set: { enabled in
-                    if enabled {
-                        DeviceEnableStore.shared.enable(device.uid)
-                    } else {
-                        DeviceEnableStore.shared.disable(device.uid)
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 8) {
+                Toggle("", isOn: Binding(
+                    get: { !isManuallyDisabled },
+                    set: { enabled in
+                        if enabled {
+                            DeviceEnableStore.shared.enable(device.uid)
+                        } else {
+                            DeviceEnableStore.shared.disable(device.uid)
+                        }
+                        AudioMonitor.shared.enforcePolicy()
                     }
-                    AudioMonitor.shared.enforcePolicy()
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+
+                Circle()
+                    .fill(device.isConnected ? Color.green : Color.secondary.opacity(0.4))
+                    .frame(width: 6, height: 6)
+
+                Image(systemName: icon).frame(width: 16)
+                Text(device.name)
+                    .lineLimit(1)
+                    .strikethrough(isBlocked)
+                    .foregroundStyle(isBlocked ? .secondary : (device.isConnected ? .primary : .secondary))
+                if isBluetoothBlocked {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-            ))
-            .toggleStyle(.checkbox)
-            .labelsHidden()
+                Spacer()
+                Button {
+                    PriorityStore.shared.moveUp(device.uid)
+                    AudioMonitor.shared.enforcePolicy()
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .buttonStyle(.plain)
 
-            Image(systemName: icon).frame(width: 16)
-            Text(device.name)
-                .lineLimit(1)
-                .strikethrough(isBlocked)
-                .foregroundStyle(isBlocked ? .secondary : .primary)
-            if isBluetoothBlocked {
-                Image(systemName: "lock.fill")
-                    .font(.caption2)
+                Button {
+                    PriorityStore.shared.moveDown(device.uid)
+                    AudioMonitor.shared.enforcePolicy()
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .buttonStyle(.plain)
+            }
+            if !device.isConnected {
+                Text(isManuallyDisabled ? "не подключён, выключен вручную" : "не подключён — станет входом сам при подключении")
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
+                    .padding(.leading, 30)
             }
-            Spacer()
-            Button {
-                PriorityStore.shared.moveUp(device.uid)
-                AudioMonitor.shared.enforcePolicy()
-            } label: {
-                Image(systemName: "chevron.up")
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                PriorityStore.shared.moveDown(device.uid)
-                AudioMonitor.shared.enforcePolicy()
-            } label: {
-                Image(systemName: "chevron.down")
-            }
-            .buttonStyle(.plain)
         }
         .font(.system(size: 12))
     }
@@ -109,7 +121,7 @@ struct MicGuardPanel: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Приоритет входов").font(.caption).foregroundStyle(.secondary)
-                ForEach(monitorState.rankedDevices, id: \.uid) { device in
+                ForEach(monitorState.displayDevices, id: \.uid) { device in
                     DeviceRow(device: device, isLocked: lockState.isLocked)
                 }
             }

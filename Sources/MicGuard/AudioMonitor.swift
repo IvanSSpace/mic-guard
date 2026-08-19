@@ -1,7 +1,7 @@
 import Foundation
 import CoreAudio
 
-enum Transport {
+enum Transport: String, Codable {
     case builtIn
     case usb
     case bluetooth
@@ -16,11 +16,21 @@ struct AudioDeviceInfo {
     let transport: Transport
 }
 
+/// Устройство для отображения в UI: может быть сейчас не подключено физически —
+/// тогда id недоступен, но имя/тип берём из последнего известного состояния
+/// (PriorityStore их запоминает), чтобы показать "вернётся само при подключении".
+struct DisplayDevice {
+    let uid: String
+    let name: String
+    let transport: Transport
+    let isConnected: Bool
+}
+
 final class MonitorState: ObservableObject {
     static let shared = MonitorState()
     @Published var currentInputName: String = "—"
     @Published var currentInputIsBluetooth: Bool = false
-    @Published var rankedDevices: [AudioDeviceInfo] = []
+    @Published var displayDevices: [DisplayDevice] = []
 }
 
 final class AudioMonitor {
@@ -75,9 +85,9 @@ final class AudioMonitor {
                 MonitorState.shared.currentInputIsBluetooth = current.transport == .bluetooth
             }
             let locked = LockState.shared.isLocked
-            let sorted = PriorityStore.shared.sortedAvailable(from: all)
-            MonitorState.shared.rankedDevices = sorted
-            return (locked, sorted, DeviceEnableStore.shared.disabledUIDs)
+            let available = PriorityStore.shared.syncKnownDevices(from: all)
+            MonitorState.shared.displayDevices = PriorityStore.shared.displayList(available: all)
+            return (locked, available, DeviceEnableStore.shared.disabledUIDs)
         }
 
         let allowed = ranked.filter {
