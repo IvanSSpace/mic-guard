@@ -74,7 +74,7 @@ private struct DeviceRow: View {
                 .buttonStyle(.plain)
             }
             if !device.isConnected {
-                Text(isManuallyDisabled ? "не подключён, выключен вручную" : "не подключён — станет входом сам при подключении")
+                Text(isManuallyDisabled ? "disconnected, disabled" : "disconnected — auto-activates on connect")
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                     .padding(.leading, 30)

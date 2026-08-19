@@ -38,6 +38,7 @@ final class AudioMonitor {
 
     private let systemObjectID = AudioObjectID(kAudioObjectSystemObject)
     private let queue = DispatchQueue(label: "mic-guard.audio-monitor")
+    private var refreshTimer: DispatchSourceTimer?
 
     func start() {
         var defaultInputAddress = AudioObjectPropertyAddress(
@@ -59,6 +60,19 @@ final class AudioMonitor {
         }
 
         enforcePolicy()
+
+        // Подстраховка: сразу после холодного старта процесса CoreAudio иногда
+        // отдаёт неполный список устройств (особенно USB/Bluetooth) — снапшот
+        // на старте может пропустить реально подключённое устройство, а раз
+        // больше никаких device-change событий не происходит, обновиться уже
+        // нечему. Периодический re-sync сам себя чинит.
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 5, repeating: 5)
+        timer.setEventHandler { [weak self] in
+            self?.enforcePolicyOnQueue()
+        }
+        timer.resume()
+        refreshTimer = timer
     }
 
     /// Безопасно вызывать с любого потока (в т.ч. main — например после ручной
