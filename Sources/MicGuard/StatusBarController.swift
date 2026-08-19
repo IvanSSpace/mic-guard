@@ -21,6 +21,7 @@ final class StatusBarController: NSObject {
 
         popover = NSPopover()
         popover.behavior = .transient
+        popover.animates = false
         popover.contentViewController = NSHostingController(rootView: MicGuardPanel())
 
         updateIcon()
