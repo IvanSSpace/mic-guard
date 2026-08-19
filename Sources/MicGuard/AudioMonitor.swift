@@ -90,8 +90,16 @@ final class AudioMonitor {
             return (locked, available, DeviceEnableStore.shared.disabledUIDs)
         }
 
+        // Виртуальные устройства (Loopback, Screaming Bee, Zoom и т.п.) — чужая
+        // песочница: если текущий вход уже такой, значит его выбрали руками ради
+        // роутинга/стриминга, тул не вмешивается вообще.
+        if let current, current.transport == .virtual || current.transport == .other { return }
+
         let allowed = ranked.filter {
-            !($0.transport == .bluetooth && isLocked) && !disabledUIDs.contains($0.uid)
+            !($0.transport == .bluetooth && isLocked)
+                && !disabledUIDs.contains($0.uid)
+                && $0.transport != .virtual
+                && $0.transport != .other
         }
         guard let desired = allowed.first, desired.id != currentID else { return }
         setDefaultInput(desired.id)

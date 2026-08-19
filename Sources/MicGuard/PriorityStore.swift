@@ -75,15 +75,29 @@ final class PriorityStore: ObservableObject {
         }
     }
 
+    /// Физические микрофоны (builtIn/usb/bluetooth) и виртуальные/неопознанные
+    /// (Loopback, Screaming Bee и т.п.) в UI показаны раздельно — реордер должен
+    /// переставлять устройство относительно соседей ИЗ ТОЙ ЖЕ группы, иначе клик
+    /// «вверх» на видимом физическом микрофоне может на деле поменять его местами
+    /// с невидимым виртуальным соседом в общем списке, и ничего не изменится в UI.
+    private func isVirtualLike(_ transport: Transport) -> Bool {
+        transport == .virtual || transport == .other
+    }
+
     func moveUp(_ uid: String) {
-        guard let idx = known.firstIndex(where: { $0.uid == uid }), idx > 0 else { return }
-        known.swapAt(idx, idx - 1)
+        guard let idx = known.firstIndex(where: { $0.uid == uid }) else { return }
+        let group = isVirtualLike(known[idx].transport)
+        guard let swapIdx = known[..<idx].lastIndex(where: { isVirtualLike($0.transport) == group }) else { return }
+        known.swapAt(idx, swapIdx)
         persist()
     }
 
     func moveDown(_ uid: String) {
-        guard let idx = known.firstIndex(where: { $0.uid == uid }), idx < known.count - 1 else { return }
-        known.swapAt(idx, idx + 1)
+        guard let idx = known.firstIndex(where: { $0.uid == uid }) else { return }
+        let group = isVirtualLike(known[idx].transport)
+        guard idx + 1 < known.count,
+              let swapIdx = known[(idx + 1)...].firstIndex(where: { isVirtualLike($0.transport) == group }) else { return }
+        known.swapAt(idx, swapIdx)
         persist()
     }
 }

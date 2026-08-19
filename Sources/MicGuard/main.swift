@@ -56,6 +56,9 @@ private struct DeviceRow: View {
                     AudioMonitor.shared.enforcePolicy()
                 } label: {
                     Image(systemName: "chevron.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -64,6 +67,9 @@ private struct DeviceRow: View {
                     AudioMonitor.shared.enforcePolicy()
                 } label: {
                     Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 24, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
