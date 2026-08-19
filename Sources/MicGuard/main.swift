@@ -187,21 +187,23 @@ struct MicGuardPanel: View {
     }
 }
 
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusBarController: StatusBarController?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        AudioMonitor.shared.start()
+        statusBarController = StatusBarController()
+    }
+}
+
 @main
 struct MicGuardApp: App {
-    @ObservedObject private var lockState = LockState.shared
-
-    init() {
-        AudioMonitor.shared.start()
-    }
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            MicGuardPanel()
-        } label: {
-            Image(systemName: lockState.isLocked ? "mic.slash.circle.fill" : "mic.circle.fill")
-                .font(.system(size: 15, weight: .black))
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
     }
 }
