@@ -1,6 +1,30 @@
 import SwiftUI
 import AppKit
 
+/// Блёклый акцентный цвет для иконки устройства — постоянный для конкретного
+/// UID, но нигде не хранится: детерминированно выводится из имени устройства.
+/// Swift's built-in `String.hashValue` рандомизируется каждый запуск процесса
+/// (защита от DoS), поэтому для стабильного между запусками результата нужен
+/// свой хэш (djb2), а не встроенный Hashable.
+private let deviceAccentPalette: [Color] = [
+    Color(red: 0.45, green: 0.58, blue: 0.78), // приглушённый синий
+    Color(red: 0.48, green: 0.68, blue: 0.55), // приглушённый зелёный
+    Color(red: 0.78, green: 0.48, blue: 0.48), // приглушённый красный
+    Color(red: 0.62, green: 0.52, blue: 0.75), // приглушённый фиолетовый
+    Color(red: 0.82, green: 0.62, blue: 0.42), // приглушённый оранжевый
+    Color(red: 0.42, green: 0.68, blue: 0.68), // приглушённый бирюзовый
+    Color(red: 0.78, green: 0.55, blue: 0.65), // приглушённый розовый
+    Color(red: 0.72, green: 0.68, blue: 0.42), // приглушённый оливковый
+]
+
+private func deviceAccentColor(for uid: String) -> Color {
+    var hash: UInt64 = 5381
+    for byte in uid.utf8 {
+        hash = (hash &* 33) &+ UInt64(byte)
+    }
+    return deviceAccentPalette[Int(hash % UInt64(deviceAccentPalette.count))]
+}
+
 private struct DeviceRow: View {
     let device: DisplayDevice
     let isLocked: Bool
@@ -44,7 +68,9 @@ private struct DeviceRow: View {
                     .fill(device.isConnected ? Color.green : Color.secondary.opacity(0.4))
                     .frame(width: 6, height: 6)
 
-                Image(systemName: icon).frame(width: 16)
+                Image(systemName: icon)
+                    .foregroundStyle(isBlocked ? .secondary : deviceAccentColor(for: device.uid))
+                    .frame(width: 16)
                 Text(device.name)
                     .lineLimit(1)
                     .strikethrough(isBlocked)
