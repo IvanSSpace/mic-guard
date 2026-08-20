@@ -24,6 +24,7 @@ struct DisplayDevice {
     let name: String
     let transport: Transport
     let isConnected: Bool
+    let colorIndex: Int
 }
 
 final class MonitorState: ObservableObject {

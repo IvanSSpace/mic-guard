@@ -1,5 +1,19 @@
 import Foundation
 
+/// Стабильный (не рандомизированный между запусками, в отличие от встроенного
+/// String.hashValue) выбор индекса в палитре акцентных цветов по UID устройства.
+enum DeviceAccent {
+    static let paletteSize = 8
+
+    static func preferredIndex(for uid: String) -> Int {
+        var hash: UInt64 = 5381
+        for byte in uid.utf8 {
+            hash = (hash &* 33) &+ UInt64(byte)
+        }
+        return Int(hash % UInt64(paletteSize))
+    }
+}
+
 /// Известное устройство: имя и тип запоминаются на момент последнего наблюдения,
 /// чтобы можно было показать устройство в UI и когда оно физически не подключено
 /// (id в CoreAudio у отключённого устройства попросту не существует).
@@ -7,6 +21,9 @@ struct KnownDevice: Codable {
     let uid: String
     var name: String
     var transport: Transport
+    /// nil у записей из старого формата (до появления этого поля) и у новых
+    /// устройств до первого назначения — syncKnownDevices досчитывает и то, и то.
+    var colorIndex: Int?
 }
 
 /// Порядок приоритета входов, ключуется по persistent device UID (не по AudioDeviceID —
@@ -51,7 +68,24 @@ final class PriorityStore: ObservableObject {
 
         let knownUIDs = Set(known.map(\.uid))
         for device in devices where !knownUIDs.contains(device.uid) {
-            known.append(KnownDevice(uid: device.uid, name: device.name, transport: device.transport))
+            known.append(KnownDevice(uid: device.uid, name: device.name, transport: device.transport, colorIndex: nil))
+            changed = true
+        }
+
+        // Назначаем цвет всем, у кого его ещё нет (новые устройства + записи из
+        // старого формата без этого поля): предпочтение по хэшу UID, но если слот
+        // занят другим устройством — пробуем следующий по кругу, чтобы одновременно
+        // видимые микрофоны не совпадали по цвету.
+        var usedIndices = Set(known.compactMap(\.colorIndex))
+        for i in known.indices where known[i].colorIndex == nil {
+            var candidate = DeviceAccent.preferredIndex(for: known[i].uid)
+            var attempts = 0
+            while usedIndices.contains(candidate) && attempts < DeviceAccent.paletteSize {
+                candidate = (candidate + 1) % DeviceAccent.paletteSize
+                attempts += 1
+            }
+            known[i].colorIndex = candidate
+            usedIndices.insert(candidate)
             changed = true
         }
 
@@ -70,7 +104,8 @@ final class PriorityStore: ObservableObject {
                 uid: device.uid,
                 name: live?.name ?? device.name,
                 transport: live?.transport ?? device.transport,
-                isConnected: live != nil
+                isConnected: live != nil,
+                colorIndex: device.colorIndex ?? DeviceAccent.preferredIndex(for: device.uid)
             )
         }
     }
