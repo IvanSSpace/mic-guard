@@ -40,6 +40,16 @@ final class AudioMonitor {
     private let queue = DispatchQueue(label: "mic-guard.audio-monitor")
     private var refreshTimer: DispatchSourceTimer?
 
+    // macOS ставит Bluetooth-гарнитуру ВРЕМЕННЫМ (transient) default input на время
+    // звонка (Telegram/FaceTime/т.п.) — штатный механизм, сам корректно откатывает
+    // после звонка. Наш AudioObjectPropertyListener не отличает transient-переключение
+    // от обычного грэба и откатывает его немедленно — это превращается в борьбу с
+    // системным call-роутингом за Bluetooth-профиль (HFP/A2DP), которая рвёт не
+    // только вход, но и выход (общий радиоканал). Если откатываем слишком часто за
+    // короткое время — явно не случайный грэб, а такая борьба — отступаем на паузу.
+    private var recentCorrections: [Date] = []
+    private var backoffUntil: Date?
+
     func start() {
         var defaultInputAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
@@ -116,6 +126,18 @@ final class AudioMonitor {
                 && $0.transport != .other
         }
         guard let desired = allowed.first, desired.id != currentID else { return }
+
+        let now = Date()
+        if let backoffUntil, now < backoffUntil { return }
+
+        recentCorrections.append(now)
+        recentCorrections.removeAll { now.timeIntervalSince($0) > 5 }
+        guard recentCorrections.count < 3 else {
+            backoffUntil = now.addingTimeInterval(25)
+            recentCorrections.removeAll()
+            return
+        }
+
         setDefaultInput(desired.id)
     }
 
